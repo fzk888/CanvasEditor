@@ -6,6 +6,8 @@ export type LocalStorageData = {
   width: number;
   height: number;
   deltaSetLike: DeltaSetLike;
+  pageCount?: number;   // 1 or 2, default 1
+  pageHeight?: number;  // per-page height in px, default 1122
 };
 
 export const STORAGE_KEY = "__sketching-storage";

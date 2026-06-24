@@ -6,11 +6,19 @@ import type { FC } from "react";
 import { useEffect, useRef, useState } from "react";
 import type { Editor } from "sketching-core";
 import { EDITOR_EVENT, Range } from "sketching-core";
+import {
+  DEFAULT_PAGE_COUNT,
+  DEFAULT_PAGE_HEIGHT,
+  PAGE_COUNT_MAX,
+  PAGE_COUNT_MIN,
+  PAGE_HEIGHT_MAX,
+  PAGE_HEIGHT_MIN,
+} from "../../../utils/constant";
 import { cs, Storage } from "sketching-utils";
 
 import { Background } from "../../../modules/background";
 import type { LocalStorageData } from "../../../utils/storage";
-import { STORAGE_KEY } from "../../../utils/storage";
+import { EXAMPLE, STORAGE_KEY } from "../../../utils/storage";
 import styles from "../index.m.scss";
 import { exportJSON, exportPDF } from "../utils/export";
 import { importJSON } from "../utils/import";
@@ -75,6 +83,51 @@ export const Right: FC<{
     });
   };
 
+  const onSwitchPageCount = (count: number) => {
+    const data = Storage.local.get<LocalStorageData>(STORAGE_KEY) || EXAMPLE;
+    const pageHeight = data.pageHeight ?? DEFAULT_PAGE_HEIGHT;
+    Background.setRange(Range.fromRect(data.x, data.y, data.width, pageHeight), count);
+    const deltaSetLike = editor.deltaSet.getDeltas();
+    const storageData: LocalStorageData = { ...Background.rect, deltaSetLike, pageCount: count, pageHeight };
+    Storage.local.set(STORAGE_KEY, storageData);
+    Background.render();
+    editor.canvas.reset();
+  };
+
+  const onSetPageHeight = () => {
+    const data = Storage.local.get<LocalStorageData>(STORAGE_KEY) || EXAMPLE;
+    const currentHeight = data.pageHeight ?? DEFAULT_PAGE_HEIGHT;
+    Modal.confirm({
+      title: "设置页高",
+      className: styles.resizeModal,
+      content: (
+        <div className={styles.modalContent}>
+          <div>页高(height, 单位px):</div>
+          <InputNumber
+            size="small"
+            className={styles.input}
+            min={PAGE_HEIGHT_MIN}
+            max={PAGE_HEIGHT_MAX}
+            defaultValue={currentHeight}
+          />
+        </div>
+      ),
+      onConfirm: () => {
+        const input = document.querySelector(`.${styles.resizeModal} .arco-input-number`) as HTMLInputElement;
+        if (!input) return;
+        const pageHeight = Number(input.value);
+        if (!pageHeight) return;
+        const pageCount = data.pageCount ?? DEFAULT_PAGE_COUNT;
+        Background.setRange(Range.fromRect(data.x, data.y, data.width, pageHeight), pageCount);
+        const deltaSetLike = editor.deltaSet.getDeltas();
+        const storageData: LocalStorageData = { ...Background.rect, deltaSetLike, pageCount, pageHeight };
+        Storage.local.set(STORAGE_KEY, storageData);
+        Background.render();
+        editor.canvas.reset();
+      },
+    });
+  };
+
   return (
     <div className={cs(styles.externalGroup)}>
       <div className={styles.history}>
@@ -106,6 +159,17 @@ export const Right: FC<{
             <Menu.Item key="1">
               <div className={styles.export} onClick={() => onResizeBackGround()}>
                 画布大小
+              </div>
+            </Menu.Item>
+            <Menu.Item key="pageCount-single" onClick={() => onSwitchPageCount(1)}>
+              简历页数 - 单页
+            </Menu.Item>
+            <Menu.Item key="pageCount-double" onClick={() => onSwitchPageCount(2)}>
+              简历页数 - 双页
+            </Menu.Item>
+            <Menu.Item key="pageHeight">
+              <div className={styles.export} onClick={() => onSetPageHeight()}>
+                页高设置
               </div>
             </Menu.Item>
             <Menu.Item key="2">

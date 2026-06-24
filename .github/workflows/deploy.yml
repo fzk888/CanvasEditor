@@ -15,21 +15,20 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
           
-      - name: install node-v16
+      - name: install node-v20
         uses: actions/setup-node@v3
         with:
-          node-version: "16.16.0"
+          node-version: "20"
 
       - name: install dependencies
         run: |
           node -v
           npm install -g pnpm@8.11.0
-          pnpm config set registry https://registry.npmjs.org/
-          pnpm install --registry=https://registry.npmjs.org/
+          pnpm install
 
       - name: build project
         run: |
-          npm run build:react
+          pnpm run build:react
 
       - name: deploy project
         uses: JamesIves/github-pages-deploy-action@releases/v3

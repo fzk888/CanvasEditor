@@ -7,8 +7,9 @@ import { Storage } from "sketching-utils";
 
 import { WithEditor } from "../../hooks/use-editor";
 import { Background } from "../../modules/background";
+import { createPagedTemplateData } from "../../utils/page-template";
 import type { LocalStorageData } from "../../utils/storage";
-import { EXAMPLE, STORAGE_KEY } from "../../utils/storage";
+import { EXAMPLE, getPageConfig, STORAGE_KEY } from "../../utils/storage";
 import { Body } from "../body";
 import { ContextMenu } from "../context-menu";
 import { Header } from "../header";
@@ -20,8 +21,18 @@ export const App: FC = () => {
   const ref = useRef<HTMLDivElement>(null);
   const editor = useMemo(() => {
     const data = Storage.local.get<LocalStorageData>(STORAGE_KEY) || EXAMPLE;
-    Background.setRange(Range.fromRect(data.x, data.y, data.width, data.height));
-    const deltaSetLike = data && data.deltaSetLike;
+    const config = getPageConfig(data);
+    const storageData = createPagedTemplateData(data, config);
+    Storage.local.set(STORAGE_KEY, storageData);
+    const { pageCount, pageHeight, pageGap, pageMargin } = getPageConfig(storageData);
+    Background.setRange(
+      Range.fromRect(storageData.x, storageData.y, storageData.width, pageHeight),
+      pageHeight,
+      pageCount,
+      pageGap,
+      pageMargin
+    );
+    const deltaSetLike = storageData.deltaSetLike;
     return new Editor({
       deltaSet: new DeltaSet(deltaSetLike),
       logLevel: LOG_LEVEL.INFO,
@@ -43,7 +54,14 @@ export const App: FC = () => {
   useEffect(() => {
     const onContentChange = (e: ContentChangeEvent) => {
       const deltaSetLike = e.current.getDeltas();
-      const storageData: LocalStorageData = { ...Background.rect, deltaSetLike };
+      const storageData: LocalStorageData = {
+        ...Background.rect,
+        deltaSetLike,
+        pageCount: Background.pageCount,
+        pageHeight: Background.pageHeight,
+        pageGap: Background.pageGap,
+        pageMargin: Background.pageMargin,
+      };
       Storage.local.set(STORAGE_KEY, storageData);
     };
     editor.event.on(EDITOR_EVENT.CONTENT_CHANGE, onContentChange);

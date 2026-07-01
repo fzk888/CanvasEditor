@@ -1,11 +1,35 @@
 import type { CanvasResetEvent, Editor, RangeRect } from "sketching-core";
 import { EDITOR_EVENT, Range } from "sketching-core";
 
-import { A4, DPI, PAGE_OFFSET } from "../utils/constant";
+import {
+  A4,
+  DEFAULT_PAGE_COUNT,
+  DEFAULT_PAGE_GAP,
+  DEFAULT_PAGE_HEIGHT,
+  DEFAULT_PAGE_MARGIN,
+  DPI,
+  PAGE_OFFSET,
+} from "../utils/constant";
+
+declare global {
+  var __SKETCHING_PAGE_FLOW__:
+    | {
+        pageY: number;
+        pageHeight: number;
+        pageGap: number;
+        pageMargin: number;
+        pageCount: number;
+      }
+    | undefined;
+}
 
 export class Background {
   public static range: Range;
   public static rect: RangeRect;
+  public static pageCount = DEFAULT_PAGE_COUNT;
+  public static pageHeight = DEFAULT_PAGE_HEIGHT;
+  public static pageGap = DEFAULT_PAGE_GAP;
+  public static pageMargin = DEFAULT_PAGE_MARGIN;
   private static canvas: HTMLCanvasElement;
   private static ctx: CanvasRenderingContext2D;
 
@@ -22,7 +46,7 @@ export class Background {
       const opWidthPX = (A4.width * DPI) / 25.4;
       const opHeightPX = (A4.height * DPI) / 25.4;
       const range = Range.fromRect(PAGE_OFFSET.x, PAGE_OFFSET.y, opWidthPX, opHeightPX);
-      Background.setRange(range);
+      Background.setRange(range, opHeightPX, DEFAULT_PAGE_COUNT, DEFAULT_PAGE_GAP, DEFAULT_PAGE_MARGIN);
     }
     dom.insertBefore(Background.canvas, dom.firstChild);
     editor.event.on(EDITOR_EVENT.CANVAS_RESET, Background.onReset);
@@ -39,9 +63,20 @@ export class Background {
     ctx.scale(ratio, ratio);
   }
 
-  public static setRange(range: Range, pageHeight: number, pageCount: number = 1) {
+  public static setRange(
+    range: Range,
+    pageHeight?: number,
+    pageCount: number = DEFAULT_PAGE_COUNT,
+    pageGap: number = DEFAULT_PAGE_GAP,
+    pageMargin: number = DEFAULT_PAGE_MARGIN
+  ) {
     const prevRect = range.rect();
-    const totalHeight = pageCount === 2 ? pageHeight * 2 : pageHeight;
+    Background.pageCount = pageCount;
+    Background.pageHeight = pageHeight || prevRect.height;
+    Background.pageGap = pageGap;
+    Background.pageMargin = Math.min(pageMargin, Math.floor(Background.pageHeight / 2));
+    const totalHeight =
+      Background.pageHeight * Background.pageCount + Background.pageGap * (Background.pageCount - 1);
     const next = Range.fromRect(
       prevRect.x,
       prevRect.y,
@@ -50,6 +85,13 @@ export class Background {
     );
     Background.range = next;
     Background.rect = next.rect();
+    globalThis.__SKETCHING_PAGE_FLOW__ = {
+      pageY: prevRect.y,
+      pageHeight: Background.pageHeight,
+      pageGap: Background.pageGap,
+      pageMargin: Background.pageMargin,
+      pageCount: Background.pageCount,
+    };
   }
 
   public static render() {
@@ -59,8 +101,16 @@ export class Background {
     const height = this.canvas.height;
     ctx.clearRect(0, 0, width, height);
     const rect = space.rect();
+    const pageHeight = Background.pageHeight;
+    const pageStride = pageHeight + Background.pageGap;
     ctx.fillStyle = "#fff";
-    ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
+    ctx.strokeStyle = "#e5e6eb";
+    ctx.lineWidth = 1;
+    for (let i = 0; i < Background.pageCount; i++) {
+      const pageY = rect.y + pageStride * i;
+      ctx.fillRect(rect.x, pageY, rect.width, pageHeight);
+      ctx.strokeRect(rect.x, pageY, rect.width, pageHeight);
+    }
   }
 
   private static onReset(e: CanvasResetEvent) {

@@ -6,16 +6,25 @@ import { Storage } from "sketching-utils";
 
 import { WithEditor } from "../../hooks/use-editor";
 import { Background } from "../../modules/background";
+import { createPagedTemplateData } from "../../utils/page-template";
 import type { LocalStorageData } from "../../utils/storage";
-import { EXAMPLE, STORAGE_KEY } from "../../utils/storage";
+import { EXAMPLE, getPageConfig, STORAGE_KEY } from "../../utils/storage";
 import { Body } from "./components/body";
 
 export const Preview: FC = () => {
   const ref = useRef<HTMLDivElement>(null);
   const editor = useMemo(() => {
     const data = Storage.local.get<LocalStorageData>(STORAGE_KEY) || EXAMPLE;
-    const deltaSetLike = data && data.deltaSetLike;
-    Background.setRange(Range.fromRect(data.x, data.y, data.width, data.height));
+    const storageData = createPagedTemplateData(data, getPageConfig(data));
+    const deltaSetLike = storageData.deltaSetLike;
+    const { pageCount, pageHeight, pageGap, pageMargin } = getPageConfig(storageData);
+    Background.setRange(
+      Range.fromRect(storageData.x, storageData.y, storageData.width, pageHeight),
+      pageHeight,
+      pageCount,
+      pageGap,
+      pageMargin
+    );
     return new Editor({
       deltaSet: new DeltaSet(deltaSetLike),
       logLevel: LOG_LEVEL.INFO,

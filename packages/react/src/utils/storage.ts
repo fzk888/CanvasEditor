@@ -1,13 +1,68 @@
 import type { DeltaSetLike } from "sketching-delta";
 
+import {
+  DEFAULT_PAGE_COUNT,
+  DEFAULT_PAGE_GAP,
+  DEFAULT_PAGE_HEIGHT,
+  DEFAULT_PAGE_MARGIN,
+  PAGE_COUNT_MAX,
+  PAGE_COUNT_MIN,
+  PAGE_GAP_MAX,
+  PAGE_GAP_MIN,
+  PAGE_MARGIN_MAX,
+  PAGE_MARGIN_MIN,
+} from "./constant";
+
 export type LocalStorageData = {
   x: number;
   y: number;
   width: number;
   height: number;
   deltaSetLike: DeltaSetLike;
-  pageCount?: number;   // 1 or 2, default 1
+  pageCount?: number;   // default 1
   pageHeight?: number;  // per-page height in px, default 1122
+  pageGap?: number;     // visual gap between pages, default 24
+  pageMargin?: number;  // inner page top/bottom margin, inferred from template when absent
+};
+
+const clamp = (value: number, min: number, max: number) => {
+  return Math.min(max, Math.max(min, value));
+};
+
+const inferPageMargin = (
+  data: Pick<LocalStorageData, "y" | "deltaSetLike" | "pageMargin">
+) => {
+  if (typeof data.pageMargin === "number") {
+    return data.pageMargin;
+  }
+  const deltas = data.deltaSetLike;
+  if (!deltas) return DEFAULT_PAGE_MARGIN;
+  const topList = Object.entries(deltas)
+    .filter(([id, delta]) => id !== "ROOT" && typeof delta.y === "number")
+    .map(([, delta]) => delta.y);
+  if (!topList.length) return DEFAULT_PAGE_MARGIN;
+  const top = Math.min(...topList);
+  const inferred = Math.round(top - data.y);
+  if (inferred < PAGE_MARGIN_MIN || inferred > 80) {
+    return DEFAULT_PAGE_MARGIN;
+  }
+  return inferred;
+};
+
+export const getPageConfig = (
+  data: Pick<
+    LocalStorageData,
+    "y" | "height" | "deltaSetLike" | "pageCount" | "pageHeight" | "pageGap" | "pageMargin"
+  >
+) => {
+  const pageCount = clamp(Math.round(data.pageCount || DEFAULT_PAGE_COUNT), PAGE_COUNT_MIN, PAGE_COUNT_MAX);
+  const pageGap = clamp(Math.round(data.pageGap ?? DEFAULT_PAGE_GAP), PAGE_GAP_MIN, PAGE_GAP_MAX);
+  const pageMargin = clamp(Math.round(inferPageMargin(data)), PAGE_MARGIN_MIN, PAGE_MARGIN_MAX);
+  const pageHeight =
+    data.pageHeight ||
+    (data.height - pageGap * (pageCount - 1)) / pageCount ||
+    DEFAULT_PAGE_HEIGHT;
+  return { pageCount, pageHeight, pageGap, pageMargin };
 };
 
 export const STORAGE_KEY = "__sketching-storage";

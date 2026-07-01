@@ -5,8 +5,9 @@ import { DeltaSet } from "sketching-delta";
 import { isString, Storage, TSON } from "sketching-utils";
 
 import { Background } from "../../../modules/background";
+import { createPagedTemplateData } from "../../../utils/page-template";
 import type { LocalStorageData } from "../../../utils/storage";
-import { STORAGE_KEY } from "../../../utils/storage";
+import { getPageConfig, STORAGE_KEY } from "../../../utils/storage";
 
 const id = "__sketching-core_input__";
 
@@ -28,12 +29,21 @@ export const importJSON = async (editor: Editor) => {
             const str = e.target && e.target.result;
             const json = isString(str) && TSON.parse<LocalStorageData>(str);
             if (json) {
-              const deltaSetLike = json.deltaSetLike;
-              const deltaSet = new DeltaSet(deltaSetLike);
+              const config = getPageConfig(json);
+              const storageData = createPagedTemplateData(json, config);
+              const nextConfig = getPageConfig(storageData);
+              const deltaSet = new DeltaSet(storageData.deltaSetLike);
               editor.state.setContent(deltaSet);
-              Background.setRange(Range.fromRect(json.x, json.y, json.width, json.height));
+              Background.setRange(
+                Range.fromRect(storageData.x, storageData.y, storageData.width, nextConfig.pageHeight),
+                nextConfig.pageHeight,
+                nextConfig.pageCount,
+                nextConfig.pageGap,
+                nextConfig.pageMargin
+              );
               Background.render();
-              Storage.local.set(STORAGE_KEY, json);
+              editor.canvas.reset();
+              Storage.local.set(STORAGE_KEY, storageData);
             } else {
               Message.error("导入失败，请检查文件");
             }

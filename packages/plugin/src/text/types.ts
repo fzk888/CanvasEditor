@@ -35,3 +35,11 @@ export type TextMatrix = {
 };
 
 export type TextMatrices = TextMatrix[];
+
+export type TextPageFlow = {
+  pageY: number;
+  pageHeight: number;
+  pageGap: number;
+  pageMargin: number;
+  pageCount: number;
+};

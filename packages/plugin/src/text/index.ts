@@ -4,9 +4,14 @@ import { TSON } from "sketching-utils";
 
 import { TEXT_ATTRS } from "./constant";
 import { RichText } from "./rich-text";
-import type { RichTextLines } from "./types";
+import type { RichTextLines, TextPageFlow } from "./types";
 
 const text = new RichText();
+
+const getPageFlow = (): TextPageFlow | undefined => {
+  return (globalThis as typeof globalThis & { __SKETCHING_PAGE_FLOW__?: TextPageFlow })
+    .__SKETCHING_PAGE_FLOW__;
+};
 
 export class Text extends Delta {
   public static KEY = "text";
@@ -24,7 +29,7 @@ export class Text extends Delta {
       lines.push(...blocks);
     }
     const matrices = text.parse(lines, this.width);
-    text.render(matrices, ctx, this.x, this.y, this.width, this.height);
+    text.render(matrices, ctx, this.x, this.y, this.width, this.height, getPageFlow());
   };
 
   public static create = (options: DeltaOptions) => new Text(options);

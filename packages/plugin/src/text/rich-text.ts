@@ -10,7 +10,14 @@ import {
   drawingUnderline,
   getLineOffset,
 } from "./drawing";
-import type { Attributes, RichTextLines, TextMatrices, TextMatrix, TextMatrixItem } from "./types";
+import type {
+  Attributes,
+  RichTextLines,
+  TextMatrices,
+  TextMatrix,
+  TextMatrixItem,
+  TextPageFlow,
+} from "./types";
 
 export class RichText {
   private ctx: CanvasRenderingContext2D;
@@ -98,24 +105,106 @@ export class RichText {
     return group;
   };
 
+  private getFlowPage = (y: number, flow: TextPageFlow) => {
+    const pageStride = flow.pageHeight + flow.pageGap;
+    const relativeY = y - flow.pageY;
+    const rawIndex = Math.floor(relativeY / pageStride);
+    const pageIndex = Math.min(Math.max(rawIndex, 0), flow.pageCount - 1);
+    const pageTop = flow.pageY + pageStride * pageIndex;
+    const pageBottom = pageTop + flow.pageHeight;
+    const contentTop = pageTop + flow.pageMargin;
+    const contentBottom = Math.max(contentTop, pageBottom - flow.pageMargin);
+    return { pageIndex, pageTop, pageBottom, contentTop, contentBottom, pageStride };
+  };
+
+  private normalizeFlowY = (y: number, flow?: TextPageFlow) => {
+    if (!flow) return y;
+    const page = this.getFlowPage(y, flow);
+    if (y >= page.contentBottom && page.pageIndex < flow.pageCount - 1) {
+      return page.pageTop + page.pageStride + flow.pageMargin;
+    }
+    return y;
+  };
+
+  private getNextFlowY = (offsetY: number, matrixHeight: number, flow?: TextPageFlow) => {
+    if (!flow) return offsetY;
+    const currentY = this.normalizeFlowY(offsetY, flow);
+    const page = this.getFlowPage(currentY, flow);
+    if (currentY + matrixHeight > page.contentBottom && page.pageIndex < flow.pageCount - 1) {
+      return page.pageTop + page.pageStride + flow.pageMargin;
+    }
+    return currentY;
+  };
+
+  public measureHeight = (matrices: TextMatrices, y: number, flow?: TextPageFlow) => {
+    let offsetY = y;
+    for (const matrix of matrices) {
+      offsetY = this.getNextFlowY(offsetY, matrix.height, flow);
+      if (flow) {
+        const page = this.getFlowPage(offsetY, flow);
+        if (page.pageIndex >= flow.pageCount - 1 && offsetY + matrix.height > page.contentBottom) {
+          offsetY = page.contentBottom;
+          break;
+        }
+      }
+      offsetY = matrix.config[TEXT_ATTRS.DIVIDING_LINE]
+        ? offsetY + DIVIDING_LINE_OFFSET
+        : offsetY + matrix.height;
+    }
+    return Math.max(0, offsetY - y);
+  };
+
+  private clip = (
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    flow?: TextPageFlow
+  ) => {
+    ctx.beginPath();
+    if (!flow) {
+      ctx.rect(x, y, width, height);
+    } else {
+      const pageStride = flow.pageHeight + flow.pageGap;
+      const flowY = this.normalizeFlowY(y, flow);
+      const bottom = Math.max(y + height, flowY + height);
+      for (let i = 0; i < flow.pageCount; i++) {
+        const pageTop = flow.pageY + pageStride * i;
+        const pageBottom = pageTop + flow.pageHeight;
+        const top = Math.max(y, pageTop);
+        const clippedBottom = Math.min(bottom, pageBottom);
+        if (clippedBottom > top) {
+          ctx.rect(x, top, width, clippedBottom - top);
+        }
+      }
+    }
+    ctx.clip();
+  };
+
   public render = (
     matrices: TextMatrices,
     ctx: CanvasRenderingContext2D,
     x: number,
     y: number,
     width: number,
-    height: number
+    height: number,
+    flow?: TextPageFlow
   ) => {
-    this.ctx.save();
-    this.ctx.beginPath();
-    this.ctx.rect(x, y, width, height);
-    this.ctx.clip();
+    ctx.save();
+    this.clip(ctx, x, y, width, height, flow);
     ctx.textBaseline = "bottom";
     let offsetX = x;
     let offsetY = y;
+    const bottom = flow ? Math.max(y + height, this.normalizeFlowY(y, flow) + height) : y + height;
     for (const matrix of matrices) {
+      offsetY = this.getNextFlowY(offsetY, matrix.height, flow);
       const offsetYBaseLine = offsetY + matrix.height;
-      if (offsetYBaseLine > y + height) break;
+      if (offsetYBaseLine > bottom) break;
+      if (flow) {
+        const page = this.getFlowPage(offsetY, flow);
+        if (page.pageIndex >= flow.pageCount - 1 && offsetYBaseLine > page.contentBottom) break;
+      }
       if (drawingDividingLine(ctx, matrix, width, offsetX, offsetY)) {
         offsetX = x;
         offsetY = offsetY + DIVIDING_LINE_OFFSET;
@@ -147,7 +236,6 @@ export class RichText {
       offsetX = x;
       offsetY = offsetYBaseLine;
     }
-    this.ctx.closePath();
-    this.ctx.restore();
+    ctx.restore();
   };
 }

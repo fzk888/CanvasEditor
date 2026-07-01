@@ -32,14 +32,17 @@ import type { DeltaState } from "sketching-core";
 import type { Editor } from "sketching-core";
 import { Op, OP_TYPE } from "sketching-delta";
 import type { Attributes } from "sketching-plugin";
-import { TEXT_ATTRS } from "sketching-plugin";
+import { RichText, TEXT_ATTRS } from "sketching-plugin";
 import { debounce, TSON } from "sketching-utils";
 
 import { useIsMounted } from "../../../../../hooks/is-mounted";
+import { Background } from "../../../../../modules/background";
 import { schema } from "../config/schema";
 import { getDefaultTextDelta } from "../utils/constant";
 import { textDeltaToSketch } from "../utils/transform";
 import { PRESET_SHORTCUT } from "./short-cut";
+
+const text = new RichText();
 
 export const RichTextEditor: FC<{
   dataRef: React.MutableRefObject<BlockDelta | null>;
@@ -78,10 +81,32 @@ export const RichTextEditor: FC<{
 
   const onSaveChange = useMemoFn((current: BlockDelta) => {
     if (!mounted.current) return void 0;
+    const lines = textDeltaToSketch(current);
     const attrs: Attributes = {
-      [TEXT_ATTRS.DATA]: TSON.stringify(textDeltaToSketch(current))!,
+      [TEXT_ATTRS.DATA]: TSON.stringify(lines)!,
     };
     editor.state.apply(new Op(OP_TYPE.REVISE, { id: state.id, attrs }));
+    const rect = state.toRange().rect();
+    const matrices = text.parse(lines, rect.width);
+    const flowHeight = text.measureHeight(matrices, rect.y, {
+      pageY: Background.rect.y,
+      pageHeight: Background.pageHeight,
+      pageGap: Background.pageGap,
+      pageMargin: Background.pageMargin,
+      pageCount: Background.pageCount,
+    });
+    const nextHeight = Math.max(rect.height, Math.ceil(flowHeight));
+    if (nextHeight > Math.ceil(rect.height)) {
+      editor.state.apply(
+        new Op(OP_TYPE.RESIZE, {
+          id: state.id,
+          x: rect.x,
+          y: rect.y,
+          width: rect.width,
+          height: nextHeight,
+        })
+      );
+    }
   });
 
   useEffect(() => {

@@ -12,6 +12,7 @@ export type {
   TextMatrices,
   TextMatrix,
   TextMatrixItem,
+  TextPageFlow,
 } from "./text/types";
 export {
   DEFAULT_BORDER_COLOR,

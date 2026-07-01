@@ -1,4 +1,4 @@
-import { Message, Modal } from "@arco-design/web-react";
+import { Button, Message, Modal } from "@arco-design/web-react";
 import type { FC } from "react";
 import { useMemo, useState } from "react";
 import type { Editor } from "sketching-core";
@@ -9,14 +9,16 @@ import { cs, Storage } from "sketching-utils";
 import { Background } from "../../../../modules/background";
 import type { TemplateConfig } from "../../../../modules/template";
 import { loadTemplate, TEMPLATE_CONFIG } from "../../../../modules/template";
+import { createPagedTemplateData } from "../../../../utils/page-template";
 import type { LocalStorageData } from "../../../../utils/storage";
-import { STORAGE_KEY } from "../../../../utils/storage";
+import { getPageConfig, STORAGE_KEY } from "../../../../utils/storage";
 import styles from "./index.m.scss";
 
 export const Template: FC<{
   editor: Editor;
 }> = ({ editor }) => {
   const [loading, setLoading] = useState(false);
+  const [preview, setPreview] = useState<TemplateConfig | null>(null);
 
   const CONFIG = useMemo(() => {
     const result: TemplateConfig[][] = [];
@@ -39,42 +41,74 @@ export const Template: FC<{
     );
   };
 
-  const onLoadTemplate = (item: TemplateConfig) => {
-    Modal.confirm({
-      title: "警告",
-      simple: true,
-      content: <div className={styles.modalContent}>确定要加载模板吗，当前的数据将会被覆盖。</div>,
-      confirmLoading: loading,
-      onConfirm: async () => {
-        setLoading(true);
-        const res: LocalStorageData | null = await loadTemplate(item.template);
-        setLoading(false);
-        if (!res) return Message.error("模板加载失败");
-        Storage.local.set(STORAGE_KEY, res);
-        const deltaSetLike = res.deltaSetLike;
-        const deltaSet = new DeltaSet(deltaSetLike);
-        editor.state.setContent(deltaSet);
-        Background.setRange(Range.fromRect(res.x, res.y, res.width, res.height));
-        Background.render();
-      },
-    });
+  const onUseTemplate = async (item: TemplateConfig) => {
+    setLoading(true);
+    const res: LocalStorageData | null = await loadTemplate(item.template);
+    setLoading(false);
+    if (!res) return Message.error("模板加载失败");
+    const config = getPageConfig(res);
+    const pageCount = Math.max(config.pageCount, Background.pageCount);
+    const storageData = createPagedTemplateData(res, { ...config, pageCount });
+    Storage.local.set(STORAGE_KEY, storageData);
+    const deltaSetLike = storageData.deltaSetLike;
+    const deltaSet = new DeltaSet(deltaSetLike);
+    const nextConfig = getPageConfig(storageData);
+    editor.state.setContent(deltaSet);
+    Background.setRange(
+      Range.fromRect(storageData.x, storageData.y, storageData.width, nextConfig.pageHeight),
+      nextConfig.pageHeight,
+      nextConfig.pageCount,
+      nextConfig.pageGap,
+      nextConfig.pageMargin
+    );
+    Background.render();
+    editor.canvas.reset();
+    setPreview(null);
+    Message.success("模板已应用");
   };
 
   return (
-    <div className={styles.container}>
-      {CONFIG.map((row, rowIndex) => (
-        <div className={styles.row} key={rowIndex}>
-          <div className={styles.item} onClick={() => row[0] && onLoadTemplate(row[0])}>
-            {getConfig(row[0])}
+    <>
+      <div className={styles.container}>
+        {CONFIG.map((row, rowIndex) => (
+          <div className={styles.row} key={rowIndex}>
+            <div className={styles.item} onClick={() => row[0] && setPreview(row[0])}>
+              {getConfig(row[0])}
+            </div>
+            <div
+              className={cs(styles.item, !row[1] && styles.hidden)}
+              onClick={() => row[1] && setPreview(row[1])}
+            >
+              {getConfig(row[1])}
+            </div>
           </div>
-          <div
-            className={cs(styles.item, !row[1] && styles.hidden)}
-            onClick={() => row[1] && onLoadTemplate(row[1])}
-          >
-            {getConfig(row[1])}
+        ))}
+      </div>
+      <Modal
+        visible={!!preview}
+        title={preview ? `预览模板 - ${preview.name}` : "预览模板"}
+        className={styles.previewModal}
+        footer={
+          <div className={styles.previewFooter}>
+            <Button onClick={() => setPreview(null)}>取消</Button>
+            <Button
+              type="primary"
+              loading={loading}
+              disabled={!preview}
+              onClick={() => preview && onUseTemplate(preview)}
+            >
+              使用模板
+            </Button>
           </div>
-        </div>
-      ))}
-    </div>
+        }
+        onCancel={() => setPreview(null)}
+      >
+        {preview && (
+          <div className={styles.modalPreview}>
+            <img src={preview.image} alt={preview.name}></img>
+          </div>
+        )}
+      </Modal>
+    </>
   );
 };

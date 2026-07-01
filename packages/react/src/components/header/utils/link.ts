@@ -8,6 +8,26 @@ import { Background } from "../../../modules/background";
 
 const text = new RichText();
 
+const getNextPageY = (offsetY: number, height: number) => {
+  const pageY = Background.rect.y;
+  const pageHeight = Background.pageHeight;
+  const pageGap = Background.pageGap;
+  const pageMargin = Background.pageMargin;
+  const pageCount = Background.pageCount;
+  const pageStride = pageHeight + pageGap;
+  const relativeY = offsetY - pageY;
+  const rawIndex = Math.floor(relativeY / pageStride);
+  const pageIndex = Math.min(Math.max(rawIndex, 0), pageCount - 1);
+  const pageTop = pageY + pageStride * pageIndex;
+  const pageBottom = pageTop + pageHeight;
+  const contentTop = pageTop + pageMargin;
+  const contentBottom = Math.max(contentTop, pageBottom - pageMargin);
+  if ((offsetY >= contentBottom || offsetY + height > contentBottom) && pageIndex < pageCount - 1) {
+    return pageTop + pageStride + pageMargin;
+  }
+  return offsetY;
+};
+
 export const parseLinks = (deltas: DeltaSet) => {
   const result: (RangeRect & { url: string })[] = [];
   deltas.forEach((_, delta) => {
@@ -20,6 +40,7 @@ export const parseLinks = (deltas: DeltaSet) => {
     let offsetY = y;
     // 迭代矩阵
     for (const matrix of matrices) {
+      offsetY = getNextPageY(offsetY, matrix.height);
       const offsetYBaseLine = offsetY + matrix.height;
       if (offsetYBaseLine > y + height) break;
       if (matrix.config[TEXT_ATTRS.DIVIDING_LINE]) {

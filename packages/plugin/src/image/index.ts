@@ -8,6 +8,7 @@ export class Image extends Delta {
   public static KEY = "image";
   public key = Image.KEY;
   private loaded = false;
+  private loading: Promise<Delta> | null = null;
   private image: HTMLImageElement;
 
   public constructor(options: DeltaOptions) {
@@ -80,20 +81,44 @@ export class Image extends Delta {
     }
     ctx.closePath();
     ctx.restore();
-    if (this.loaded) return void 0;
+    if (this.loaded || (this.image.complete && this.image.naturalWidth > 0)) {
+      this.loaded = true;
+      return void 0;
+    }
     // 避免图片异步加载问题
-    return new Promise<Delta>(resolve => {
+    if (this.loading) return this.loading;
+    this.loading = new Promise<Delta>((resolve, reject) => {
+      const timer = window.setTimeout(() => {
+        this.loading = null;
+        reject(new Error("图片加载超时，PDF导出已中止"));
+      }, 15000);
       this.image.onload = () => {
+        window.clearTimeout(timer);
         this.loaded = true;
+        this.loading = null;
         resolve(this);
       };
+      this.image.onerror = () => {
+        window.clearTimeout(timer);
+        this.loading = null;
+        reject(new Error("图片加载失败，PDF导出已中止"));
+      };
     });
+    return this.loading;
   };
 
   private updateImage(value: string | null) {
     this.loaded = false;
+    this.loading = null;
     this.image.src = value || EMPTY;
-    this.image.onload = () => (this.loaded = true);
+    this.image.onload = () => {
+      this.loaded = true;
+      this.loading = null;
+    };
+    this.image.onerror = () => {
+      this.loaded = false;
+      this.loading = null;
+    };
   }
 
   public setAttr(key: string, value: string | null): this {

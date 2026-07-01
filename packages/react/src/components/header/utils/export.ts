@@ -19,7 +19,7 @@ export const exportPDF = async (DPI = 1) => {
   const deltaSetLike = data && data.deltaSetLike;
   const pageCount = data.pageCount ?? 1;
   const pageHeight = data.pageHeight ?? DEFAULT_PAGE_HEIGHT;
-  Background.setRange(Range.fromRect(data.x, data.y, data.width, pageHeight), pageCount);
+  Background.setRange(Range.fromRect(data.x, data.y, data.width, pageHeight), pageHeight, pageCount);
   const deltaSet = new DeltaSet(deltaSetLike);
   const deltas: Delta[] = [];
   const tasks: Promise<Delta>[] = [];

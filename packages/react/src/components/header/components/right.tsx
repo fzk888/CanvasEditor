@@ -86,7 +86,7 @@ export const Right: FC<{
   const onSwitchPageCount = (count: number) => {
     const data = Storage.local.get<LocalStorageData>(STORAGE_KEY) || EXAMPLE;
     const pageHeight = data.pageHeight ?? DEFAULT_PAGE_HEIGHT;
-    Background.setRange(Range.fromRect(data.x, data.y, data.width, pageHeight), count);
+    Background.setRange(Range.fromRect(data.x, data.y, data.width, pageHeight), pageHeight, count);
     const deltaSetLike = editor.deltaSet.getDeltas();
     const storageData: LocalStorageData = { ...Background.rect, deltaSetLike, pageCount: count, pageHeight };
     Storage.local.set(STORAGE_KEY, storageData);
@@ -118,7 +118,7 @@ export const Right: FC<{
         const pageHeight = Number(input.value);
         if (!pageHeight) return;
         const pageCount = data.pageCount ?? DEFAULT_PAGE_COUNT;
-        Background.setRange(Range.fromRect(data.x, data.y, data.width, pageHeight), pageCount);
+        Background.setRange(Range.fromRect(data.x, data.y, data.width, pageHeight), pageHeight, pageCount);
         const deltaSetLike = editor.deltaSet.getDeltas();
         const storageData: LocalStorageData = { ...Background.rect, deltaSetLike, pageCount, pageHeight };
         Storage.local.set(STORAGE_KEY, storageData);

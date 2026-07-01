@@ -39,14 +39,14 @@ export class Background {
     ctx.scale(ratio, ratio);
   }
 
-  public static setRange(range: Range, pageCount: number = 1) {
+  public static setRange(range: Range, pageHeight: number, pageCount: number = 1) {
     const prevRect = range.rect();
-    const pageHeight = prevRect.height / (pageCount === 2 ? 2 : 1);
+    const totalHeight = pageCount === 2 ? pageHeight * 2 : pageHeight;
     const next = Range.fromRect(
       prevRect.x,
       prevRect.y,
       Math.ceil(prevRect.width),
-      Math.ceil(pageCount * pageHeight)
+      Math.ceil(totalHeight)
     );
     Background.range = next;
     Background.rect = next.rect();

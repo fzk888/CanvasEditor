@@ -1,11 +1,8 @@
 import type { DeltaLike, DeltaSetLike } from "sketching-delta";
-import { getUniqueId, ROOT_DELTA } from "sketching-utils";
+import { ROOT_DELTA } from "sketching-utils";
 
 import type { LocalStorageData } from "./storage";
 import { getPageConfig } from "./storage";
-
-const TEMPLATE_AUTO_ATTR = "__PAGE_TEMPLATE_AUTO__";
-const TEMPLATE_PAGE_ATTR = "__PAGE_TEMPLATE_PAGE__";
 
 type PageConfig = ReturnType<typeof getPageConfig>;
 
@@ -90,62 +87,13 @@ const keepVisibleDeltas = (
   return next;
 };
 
-const getFirstPageTemplateDeltas = (
-  deltas: DeltaSetLike,
-  data: Pick<LocalStorageData, "y">,
-  config: PageConfig
-) => {
-  return Object.values(deltas).filter(delta => {
-    return (
-      delta.id !== ROOT_DELTA &&
-      !delta.attrs?.[TEMPLATE_AUTO_ATTR] &&
-      intersectsPage(delta, data, config, 0)
-    );
-  });
-};
-
-const hasDeltaOnPage = (
-  deltas: DeltaSetLike,
-  data: Pick<LocalStorageData, "y">,
-  config: PageConfig,
-  pageIndex: number
-) => {
-  return Object.values(deltas).some(delta => {
-    return delta.id !== ROOT_DELTA && intersectsPage(delta, data, config, pageIndex);
-  });
-};
-
 export const createPagedTemplateData = (
   data: LocalStorageData,
   overrides: Partial<PageConfig> = {}
 ): LocalStorageData => {
   const config = { ...getPageConfig(data), ...overrides };
-  const pageStride = config.pageHeight + config.pageGap;
   const height = config.pageHeight * config.pageCount + config.pageGap * (config.pageCount - 1);
   const next = keepVisibleDeltas(data.deltaSetLike, data, config);
-  const firstPageTemplate = getFirstPageTemplateDeltas(next, data, config);
-  const root = next[ROOT_DELTA];
-
-  for (let pageIndex = 1; pageIndex < config.pageCount; pageIndex++) {
-    if (hasDeltaOnPage(next, data, config, pageIndex)) {
-      continue;
-    }
-    firstPageTemplate.forEach(delta => {
-      const id = getUniqueId();
-      next[id] = {
-        ...cloneDelta(delta),
-        id,
-        y: delta.y + pageStride * pageIndex,
-        attrs: {
-          ...(delta.attrs || {}),
-          [TEMPLATE_AUTO_ATTR]: "true",
-          [TEMPLATE_PAGE_ATTR]: String(pageIndex + 1),
-        },
-        children: [],
-      };
-      root.children = [...(root.children || []), id];
-    });
-  }
 
   normalizeChildren(next);
   return {

@@ -25,6 +25,15 @@ export type LocalStorageData = {
   pageMargin?: number;  // inner page top/bottom margin, inferred from template when absent
 };
 
+const isRecord = (value: unknown): value is Record<string, unknown> => {
+  return !!value && typeof value === "object";
+};
+
+const finiteNumber = (value: unknown, fallback: number) => {
+  const next = Number(value);
+  return Number.isFinite(next) ? next : fallback;
+};
+
 const clamp = (value: number, min: number, max: number) => {
   return Math.min(max, Math.max(min, value));
 };
@@ -66,6 +75,7 @@ export const getPageConfig = (
 };
 
 export const STORAGE_KEY = "__sketching-storage";
+export const STORAGE_BACKUP_PREFIX = "__sketching-storage-backup";
 export const EXAMPLE: LocalStorageData = {
   x: 160,
   y: 30,
@@ -115,4 +125,42 @@ export const EXAMPLE: LocalStorageData = {
       children: [],
     },
   },
+};
+
+export const normalizeLocalStorageData = (data: unknown): LocalStorageData | null => {
+  const maybeWrapped = isRecord(data) && isRecord(data.origin) ? data.origin : data;
+  if (!isRecord(maybeWrapped) || !isRecord(maybeWrapped.deltaSetLike)) {
+    return null;
+  }
+  return {
+    x: finiteNumber(maybeWrapped.x, EXAMPLE.x),
+    y: finiteNumber(maybeWrapped.y, EXAMPLE.y),
+    width: finiteNumber(maybeWrapped.width, EXAMPLE.width),
+    height: finiteNumber(maybeWrapped.height, EXAMPLE.height),
+    deltaSetLike: maybeWrapped.deltaSetLike as DeltaSetLike,
+    pageCount: isRecord(maybeWrapped) && typeof maybeWrapped.pageCount !== "undefined"
+      ? finiteNumber(maybeWrapped.pageCount, DEFAULT_PAGE_COUNT)
+      : undefined,
+    pageHeight: isRecord(maybeWrapped) && typeof maybeWrapped.pageHeight !== "undefined"
+      ? finiteNumber(maybeWrapped.pageHeight, DEFAULT_PAGE_HEIGHT)
+      : undefined,
+    pageGap: isRecord(maybeWrapped) && typeof maybeWrapped.pageGap !== "undefined"
+      ? finiteNumber(maybeWrapped.pageGap, DEFAULT_PAGE_GAP)
+      : undefined,
+    pageMargin: isRecord(maybeWrapped) && typeof maybeWrapped.pageMargin !== "undefined"
+      ? finiteNumber(maybeWrapped.pageMargin, DEFAULT_PAGE_MARGIN)
+      : undefined,
+  };
+};
+
+export const backupRawStorage = () => {
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return void 0;
+    const key = `${STORAGE_BACKUP_PREFIX}-${Date.now()}`;
+    window.localStorage.setItem(key, raw);
+    return key;
+  } catch (error) {
+    console.warn("backup sketching storage failed", error);
+  }
 };

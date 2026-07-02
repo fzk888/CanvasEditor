@@ -8,14 +8,30 @@ import { WithEditor } from "../../hooks/use-editor";
 import { Background } from "../../modules/background";
 import { createPagedTemplateData } from "../../utils/page-template";
 import type { LocalStorageData } from "../../utils/storage";
-import { EXAMPLE, getPageConfig, STORAGE_KEY } from "../../utils/storage";
+import {
+  backupRawStorage,
+  EXAMPLE,
+  getPageConfig,
+  normalizeLocalStorageData,
+  STORAGE_KEY,
+} from "../../utils/storage";
 import { Body } from "./components/body";
 
 export const Preview: FC = () => {
   const ref = useRef<HTMLDivElement>(null);
   const editor = useMemo(() => {
-    const data = Storage.local.get<LocalStorageData>(STORAGE_KEY) || EXAMPLE;
-    const storageData = createPagedTemplateData(data, getPageConfig(data));
+    let storageData: LocalStorageData = EXAMPLE;
+    try {
+      const data = normalizeLocalStorageData(Storage.local.get<LocalStorageData>(STORAGE_KEY));
+      if (data) {
+        storageData = createPagedTemplateData(data, getPageConfig(data));
+      } else {
+        backupRawStorage();
+      }
+    } catch (error) {
+      backupRawStorage();
+      console.error(error);
+    }
     const deltaSetLike = storageData.deltaSetLike;
     const { pageCount, pageHeight, pageGap, pageMargin } = getPageConfig(storageData);
     Background.setRange(

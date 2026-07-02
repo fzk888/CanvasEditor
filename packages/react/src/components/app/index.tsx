@@ -9,7 +9,13 @@ import { WithEditor } from "../../hooks/use-editor";
 import { Background } from "../../modules/background";
 import { createPagedTemplateData } from "../../utils/page-template";
 import type { LocalStorageData } from "../../utils/storage";
-import { EXAMPLE, getPageConfig, STORAGE_KEY } from "../../utils/storage";
+import {
+  backupRawStorage,
+  EXAMPLE,
+  getPageConfig,
+  normalizeLocalStorageData,
+  STORAGE_KEY,
+} from "../../utils/storage";
 import { Body } from "../body";
 import { ContextMenu } from "../context-menu";
 import { Header } from "../header";
@@ -20,9 +26,18 @@ Storage.setSuffix("");
 export const App: FC = () => {
   const ref = useRef<HTMLDivElement>(null);
   const editor = useMemo(() => {
-    const data = Storage.local.get<LocalStorageData>(STORAGE_KEY) || EXAMPLE;
-    const config = getPageConfig(data);
-    const storageData = createPagedTemplateData(data, config);
+    let storageData: LocalStorageData = EXAMPLE;
+    try {
+      const data = normalizeLocalStorageData(Storage.local.get<LocalStorageData>(STORAGE_KEY));
+      if (data) {
+        storageData = createPagedTemplateData(data, getPageConfig(data));
+      } else {
+        backupRawStorage();
+      }
+    } catch (error) {
+      backupRawStorage();
+      console.error(error);
+    }
     Storage.local.set(STORAGE_KEY, storageData);
     const { pageCount, pageHeight, pageGap, pageMargin } = getPageConfig(storageData);
     Background.setRange(

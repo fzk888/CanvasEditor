@@ -82,7 +82,6 @@ const keepVisibleDeltas = (
   next[ROOT_DELTA] = cloneDelta(getRoot(deltaSetLike));
   Object.entries(deltaSetLike).forEach(([id, delta]) => {
     if (id === ROOT_DELTA) return;
-    if (delta.attrs?.[TEMPLATE_AUTO_ATTR]) return;
     if (!isInKeptPages(delta, data, config)) return;
     next[id] = cloneDelta(delta);
   });
@@ -105,6 +104,17 @@ const getFirstPageTemplateDeltas = (
   });
 };
 
+const hasDeltaOnPage = (
+  deltas: DeltaSetLike,
+  data: Pick<LocalStorageData, "y">,
+  config: PageConfig,
+  pageIndex: number
+) => {
+  return Object.values(deltas).some(delta => {
+    return delta.id !== ROOT_DELTA && intersectsPage(delta, data, config, pageIndex);
+  });
+};
+
 export const createPagedTemplateData = (
   data: LocalStorageData,
   overrides: Partial<PageConfig> = {}
@@ -117,6 +127,9 @@ export const createPagedTemplateData = (
   const root = next[ROOT_DELTA];
 
   for (let pageIndex = 1; pageIndex < config.pageCount; pageIndex++) {
+    if (hasDeltaOnPage(next, data, config, pageIndex)) {
+      continue;
+    }
     firstPageTemplate.forEach(delta => {
       const id = getUniqueId();
       next[id] = {

@@ -4,14 +4,14 @@ import { useMemo, useState } from "react";
 import type { Editor } from "sketching-core";
 import { Range } from "sketching-core";
 import { DeltaSet } from "sketching-delta";
-import { cs, Storage } from "sketching-utils";
+import { cs } from "sketching-utils";
 
 import { Background } from "../../../../modules/background";
 import type { TemplateConfig } from "../../../../modules/template";
 import { loadTemplate, TEMPLATE_CONFIG } from "../../../../modules/template";
 import { createPagedTemplateData } from "../../../../utils/page-template";
 import type { LocalStorageData } from "../../../../utils/storage";
-import { getPageConfig, STORAGE_KEY } from "../../../../utils/storage";
+import { getPageConfig, safeSetLocalStorageData } from "../../../../utils/storage";
 import styles from "./index.m.scss";
 
 export const Template: FC<{
@@ -49,7 +49,9 @@ export const Template: FC<{
     const config = getPageConfig(res);
     const pageCount = Math.max(config.pageCount, Background.pageCount);
     const storageData = createPagedTemplateData(res, { ...config, pageCount });
-    Storage.local.set(STORAGE_KEY, storageData);
+    if (!safeSetLocalStorageData(storageData)) {
+      Message.warning("模板数据较大，浏览器本地保存失败，但当前页面仍可编辑");
+    }
     const deltaSetLike = storageData.deltaSetLike;
     const deltaSet = new DeltaSet(deltaSetLike);
     const nextConfig = getPageConfig(storageData);

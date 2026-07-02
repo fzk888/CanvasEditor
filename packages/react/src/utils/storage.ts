@@ -1,4 +1,5 @@
 import type { DeltaSetLike } from "sketching-delta";
+import { Storage } from "sketching-utils";
 
 import {
   DEFAULT_PAGE_COUNT,
@@ -162,5 +163,15 @@ export const backupRawStorage = () => {
     return key;
   } catch (error) {
     console.warn("backup sketching storage failed", error);
+  }
+};
+
+export const safeSetLocalStorageData = (data: LocalStorageData) => {
+  try {
+    Storage.local.set(STORAGE_KEY, data);
+    return true;
+  } catch (error) {
+    console.error("save sketching storage failed", error);
+    return false;
   }
 };

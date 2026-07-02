@@ -14,6 +14,7 @@ import {
   EXAMPLE,
   getPageConfig,
   normalizeLocalStorageData,
+  safeSetLocalStorageData,
   STORAGE_KEY,
 } from "../../utils/storage";
 import { Body } from "../body";
@@ -38,7 +39,6 @@ export const App: FC = () => {
       backupRawStorage();
       console.error(error);
     }
-    Storage.local.set(STORAGE_KEY, storageData);
     const { pageCount, pageHeight, pageGap, pageMargin } = getPageConfig(storageData);
     Background.setRange(
       Range.fromRect(storageData.x, storageData.y, storageData.width, pageHeight),
@@ -77,7 +77,7 @@ export const App: FC = () => {
         pageGap: Background.pageGap,
         pageMargin: Background.pageMargin,
       };
-      Storage.local.set(STORAGE_KEY, storageData);
+      safeSetLocalStorageData(storageData);
     };
     editor.event.on(EDITOR_EVENT.CONTENT_CHANGE, onContentChange);
     return () => {

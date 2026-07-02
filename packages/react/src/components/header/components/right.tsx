@@ -22,7 +22,7 @@ import { cs, Storage } from "sketching-utils";
 import { Background } from "../../../modules/background";
 import { createPagedTemplateData } from "../../../utils/page-template";
 import type { LocalStorageData } from "../../../utils/storage";
-import { EXAMPLE, getPageConfig, STORAGE_KEY } from "../../../utils/storage";
+import { EXAMPLE, getPageConfig, safeSetLocalStorageData, STORAGE_KEY } from "../../../utils/storage";
 import styles from "../index.m.scss";
 import { exportJSON, exportPDF } from "../utils/export";
 import { importJSON } from "../utils/import";
@@ -79,7 +79,12 @@ export const Right: FC<{
       pageMargin
     );
     editor.state.setContent(new DeltaSet(storageData.deltaSetLike));
-    Storage.local.set(STORAGE_KEY, storageData);
+    if (!safeSetLocalStorageData(storageData)) {
+      Modal.warning({
+        title: "本地保存失败",
+        content: "当前简历数据超过浏览器 localStorage 容量，页面仍可编辑，请先导出 JSON 备份。",
+      });
+    }
     Background.render();
     editor.canvas.reset();
   };
